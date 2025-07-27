@@ -156,47 +156,152 @@ const ResultsScreen = ({ result, image, onRetake }) => {
             </h3>
             
             <div className="space-y-4">
-              {Object.entries(result.categories).map(([key, category], index) => (
-                <motion.div
-                  key={key}
-                  initial={{ opacity: 0, x: 20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ duration: 0.5, delay: 0.8 + index * 0.1 }}
-                  className="space-y-2"
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-3">
-                      <span className="text-2xl">{categoryIcons[key]}</span>
-                      <span className="font-medium text-gray-900">
-                        {categoryNames[key]}
-                      </span>
-                    </div>
-                    <div className="text-right">
-                      <span className="font-semibold text-gray-900">
-                        {category.score > 0 ? '+' : ''}{category.score}
-                      </span>
-                      <span className="text-gray-500 text-sm ml-1">
-                        / {key === 'carDependency' ? '0' : category.maxScore}
-                      </span>
-                    </div>
-                  </div>
+              {(() => {
+                // Extract data from new ensemble system or fallback to old format
+                const getDetectedObjects = (categoryKey) => {
+                  if (!result.specialist_results) {
+                    // Fallback to old format
+                    const category = (result.features || result.categories || {})[categoryKey];
+                    return {
+                      detected: category?.detected || [],
+                      count: category?.count || 0,
+                      score: category?.score || (result.categoryScores && result.categoryScores[categoryKey]) || 0
+                    };
+                  }
+
+                  // New ensemble system format
+                  const { green_analysis, infrastructure_analysis, transportation_analysis } = result.specialist_results;
                   
-                  <div className="w-full bg-gray-200 rounded-full h-3">
+                  switch (categoryKey) {
+                    case 'greenCoverage':
+                      const greenObjects = [
+                        ...(green_analysis.vegetation_objects || []).map(obj => `${obj.type} (${(obj.confidence * 100).toFixed(0)}%)`),
+                        ...(green_analysis.green_infrastructure || []).map(infra => infra.replace('_', ' '))
+                      ];
+                      return {
+                        detected: greenObjects,
+                        count: greenObjects.length,
+                        score: result.component_scores?.green_coverage || 0,
+                        coverage: green_analysis.green_coverage_ratio ? `${(green_analysis.green_coverage_ratio * 100).toFixed(1)}% coverage` : null
+                      };
+                      
+                    case 'walkability':
+                      const walkObjects = (transportation_analysis.pedestrians || []).map(p => `${p.type} (${(p.confidence * 100).toFixed(0)}%)`);
+                      return {
+                        detected: walkObjects,
+                        count: walkObjects.length,
+                        score: result.component_scores?.transportation || 0
+                      };
+                      
+                    case 'transitAccess':
+                      const transitObjects = [
+                        ...(transportation_analysis.public_transit || []).map(t => `${t.type} (${(t.confidence * 100).toFixed(0)}%)`),
+                        ...(transportation_analysis.cyclists || []).map(c => `${c.type} (${(c.confidence * 100).toFixed(0)}%)`)
+                      ];
+                      return {
+                        detected: transitObjects,
+                        count: transitObjects.length,
+                        score: result.component_scores?.transportation || 0
+                      };
+                      
+                    case 'carDependency':
+                      const vehicleObjects = (transportation_analysis.vehicles || []).map(v => `${v.type} (${(v.confidence * 100).toFixed(0)}%)`);
+                      return {
+                        detected: vehicleObjects,
+                        count: vehicleObjects.length,
+                        score: -(vehicleObjects.length * 3), // Negative score for cars
+                        dependency: transportation_analysis.car_dependency ? `${(transportation_analysis.car_dependency * 100).toFixed(0)}% car dependent` : null
+                      };
+                      
+                    case 'buildingEfficiency':
+                      const buildingObjects = [
+                        ...(infrastructure_analysis.building_types || []),
+                        ...(infrastructure_analysis.accessibility_features || [])
+                      ];
+                      return {
+                        detected: buildingObjects,
+                        count: buildingObjects.length,
+                        score: result.component_scores?.infrastructure || 0
+                      };
+                      
+                    default:
+                      return { detected: [], count: 0, score: 0 };
+                  }
+                };
+
+                const categories = ['greenCoverage', 'walkability', 'transitAccess', 'carDependency', 'buildingEfficiency'];
+                
+                return categories.map((key, index) => {
+                  const categoryData = getDetectedObjects(key);
+                  
+                  return (
                     <motion.div
-                      className={`category-bar ${getCategoryColor(key, category.score)}`}
-                      initial={{ width: 0 }}
-                      animate={{ width: `${getCategoryWidth(key, category.score, category.maxScore)}%` }}
-                      transition={{ duration: 1, delay: 1 + index * 0.1 }}
-                    />
-                  </div>
-                  
-                  {category.detected.length > 0 && (
-                    <div className="text-sm text-gray-600">
-                      Detected: {category.detected.join(', ')} ({category.count} items)
-                    </div>
-                  )}
-                </motion.div>
-              ))}
+                      key={key}
+                      initial={{ opacity: 0, x: 20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ duration: 0.5, delay: 0.8 + index * 0.1 }}
+                      className="space-y-2"
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-3">
+                          <span className="text-2xl">{categoryIcons[key] || '📊'}</span>
+                          <span className="font-medium text-gray-900">
+                            {categoryNames[key]}
+                          </span>
+                        </div>
+                        <div className="text-right">
+                          <span className="font-semibold text-gray-900">
+                            {categoryData.score > 0 ? `+${categoryData.score}` : categoryData.score}
+                          </span>
+                          <span className="text-gray-500 text-sm ml-1">
+                            / {key === 'carDependency' ? '0' : '50'}
+                          </span>
+                        </div>
+                      </div>
+                      
+                      <div className="w-full bg-gray-200 rounded-full h-3">
+                        <motion.div
+                          className={`category-bar ${getCategoryColor(key, categoryData.score)}`}
+                          initial={{ width: 0 }}
+                          animate={{ width: `${getCategoryWidth(key, categoryData.score, 50)}%` }}
+                          transition={{ duration: 1, delay: 1 + index * 0.1 }}
+                        />
+                      </div>
+                      
+                      {/* Show detected objects */}
+                      {categoryData.detected.length > 0 && (
+                        <div className="text-sm text-gray-600">
+                          <strong>Detected:</strong> {categoryData.detected.slice(0, 3).join(', ')}
+                          {categoryData.detected.length > 3 && ` (+${categoryData.detected.length - 3} more)`}
+                          {categoryData.count > 0 && ` (${categoryData.count} items)`}
+                        </div>
+                      )}
+                      
+                      {/* Show additional metrics */}
+                      {categoryData.coverage && (
+                        <div className="text-xs text-green-600">
+                          {categoryData.coverage}
+                        </div>
+                      )}
+                      {categoryData.dependency && (
+                        <div className="text-xs text-red-600">
+                          {categoryData.dependency}
+                        </div>
+                      )}
+                      
+                      {/* Show empty state */}
+                      {categoryData.detected.length === 0 && (
+                        <div className="text-sm text-gray-400 italic">
+                          No {key === 'greenCoverage' ? 'vegetation' : 
+                               key === 'walkability' ? 'pedestrians' :
+                               key === 'transitAccess' ? 'public transit' :
+                               key === 'carDependency' ? 'vehicles' : 'infrastructure'} detected
+                        </div>
+                      )}
+                    </motion.div>
+                  );
+                });
+              })()}
             </div>
           </motion.div>
 

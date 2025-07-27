@@ -3,27 +3,40 @@ import { motion, AnimatePresence } from 'framer-motion'
 import CameraCapture from './components/CameraCapture'
 import ResultsScreen from './components/ResultsScreen'
 import LoadingScreen from './components/LoadingScreen'
+import { autoAnalyzeStreetSustainability, mockAnalyzeStreetSustainability, testBackendConnection } from './services/backendService'
 
 function App() {
   const [currentScreen, setCurrentScreen] = useState('camera') // 'camera', 'loading', 'results'
   const [analysisResult, setAnalysisResult] = useState(null)
   const [capturedImage, setCapturedImage] = useState(null)
+  const [useMockData, setUseMockData] = useState(false) // Toggle for testing
 
   const handleImageCapture = async (imageFile) => {
     setCapturedImage(imageFile)
     setCurrentScreen('loading')
     
     try {
-      // Simulate API call to AWS Rekognition
-      const result = await analyzeImage(imageFile)
+      // Use auto-detection for best analysis method, or force mock if toggle is on
+      const result = useMockData 
+        ? await mockAnalyzeStreetSustainability(imageFile)
+        : await autoAnalyzeStreetSustainability(imageFile)
+      
       setAnalysisResult(result)
       setCurrentScreen('results')
     } catch (error) {
-      console.error('Analysis failed:', error)
-      // For demo purposes, show mock results even if API fails
-      const mockResult = generateMockResult()
-      setAnalysisResult(mockResult)
-      setCurrentScreen('results')
+      console.error('Real AWS analysis failed, falling back to mock:', error)
+      // Fallback to mock analysis if AWS fails
+      try {
+        const mockResult = await mockAnalyzeStreetSustainability(imageFile)
+        setAnalysisResult(mockResult)
+        setCurrentScreen('results')
+      } catch (mockError) {
+        console.error('Mock analysis also failed:', mockError)
+        // Last resort: generate basic mock data
+        const basicMockResult = generateBasicMockResult()
+        setAnalysisResult(basicMockResult)
+        setCurrentScreen('results')
+      }
     }
   }
 
@@ -33,78 +46,85 @@ function App() {
     setCapturedImage(null)
   }
 
-  const analyzeImage = async (imageFile) => {
-    // Mock analysis for demo - in production this would call AWS Rekognition
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        resolve(generateMockResult())
-      }, 3000) // 3 second delay to simulate processing
-    })
+  const toggleMockData = () => {
+    setUseMockData(!useMockData)
   }
 
-  const generateMockResult = () => {
-    // Generate realistic mock data
-    const greenCoverage = Math.floor(Math.random() * 30) + 5
-    const walkability = Math.floor(Math.random() * 25) + 5
-    const transitAccess = Math.floor(Math.random() * 25) + 0
-    const carDependency = Math.floor(Math.random() * 15) + 0
-    const buildingEfficiency = Math.floor(Math.random() * 20) + 0
-    
-    const totalScore = Math.min(50 + greenCoverage + walkability + transitAccess - carDependency + buildingEfficiency, 100)
+  // Basic fallback for when everything else fails
+  const generateBasicMockResult = () => {
+    const score = Math.floor(Math.random() * 40) + 40 // 40-80 range
     
     return {
-      score: totalScore,
-      categories: {
-        greenCoverage: {
-          score: greenCoverage,
-          maxScore: 30,
-          detected: ['Tree', 'Plant', 'Grass'],
-          count: Math.floor(greenCoverage / 8)
+      score,
+      method: 'fallback',
+      features: {
+        greenCoverage: { 
+          count: 2, 
+          detected: ['Tree', 'Grass'],
+          confidence: 85,
+          labels: [{ name: 'Tree', confidence: 85 }, { name: 'Grass', confidence: 80 }]
         },
-        walkability: {
-          score: walkability,
-          maxScore: 25,
-          detected: ['Sidewalk', 'Person'],
-          count: Math.floor(walkability / 5)
+        walkability: { 
+          count: 1, 
+          detected: ['Sidewalk'],
+          confidence: 75,
+          labels: [{ name: 'Sidewalk', confidence: 75 }]
         },
-        transitAccess: {
-          score: transitAccess,
-          maxScore: 25,
-          detected: transitAccess > 0 ? ['Bus Stop'] : [],
-          count: Math.floor(transitAccess / 10)
+        transitAccess: { 
+          count: 0, 
+          detected: [],
+          confidence: 0,
+          labels: []
         },
-        carDependency: {
-          score: -carDependency,
-          maxScore: 0,
-          detected: ['Car', 'Parking'],
-          count: Math.floor(carDependency / 3)
+        carDependency: { 
+          count: 3, 
+          detected: ['Car'],
+          confidence: 90,
+          labels: [{ name: 'Car', confidence: 90 }]
         },
-        buildingEfficiency: {
-          score: buildingEfficiency,
-          maxScore: 20,
-          detected: buildingEfficiency > 10 ? ['Solar Panel'] : [],
-          count: Math.floor(buildingEfficiency / 6)
+        buildingEfficiency: { 
+          count: 1, 
+          detected: ['Building'],
+          confidence: 70,
+          labels: [{ name: 'Building', confidence: 70 }]
+        },
+        infrastructure: { 
+          count: 1, 
+          detected: ['Street Light'],
+          confidence: 65,
+          labels: [{ name: 'Street Light', confidence: 65 }]
+        },
+        naturalElements: { 
+          count: 1, 
+          detected: ['Sky'],
+          confidence: 95,
+          labels: [{ name: 'Sky', confidence: 95 }]
         }
       },
-      recommendations: generateRecommendations(totalScore)
+      categoryScores: {
+        greenCoverage: 12,
+        walkability: 5,
+        transitAccess: 0,
+        carDependency: -12,
+        buildingEfficiency: 4,
+        naturalElements: 2
+      },
+      recommendations: [
+        "🌱 This is a basic analysis - connect to AWS for detailed insights",
+        "📊 Enable real AI analysis for comprehensive sustainability scoring",
+        "🔧 Configure your AWS credentials to unlock full AI-powered analysis"
+      ],
+      rawLabels: [
+        { Name: 'Tree', Confidence: 85 },
+        { Name: 'Grass', Confidence: 80 },
+        { Name: 'Sidewalk', Confidence: 75 },
+        { Name: 'Car', Confidence: 90 },
+        { Name: 'Building', Confidence: 70 },
+        { Name: 'Sky', Confidence: 95 }
+      ],
+      isFallbackData: true,
+      timestamp: new Date().toISOString()
     }
-  }
-
-  const generateRecommendations = (score) => {
-    const recommendations = []
-    
-    if (score < 60) {
-      recommendations.push("Add more trees and green spaces to improve sustainability")
-      recommendations.push("Consider adding bike lanes for better transit access")
-    } else if (score < 80) {
-      recommendations.push("Great foundation! Add solar panels to boost building efficiency")
-      recommendations.push("Reduce parking spaces to decrease car dependency")
-    } else {
-      recommendations.push("Excellent sustainability! This is a model eco-friendly street")
-      recommendations.push("Share this example to inspire other neighborhoods")
-    }
-    
-    return recommendations
   }
 
   return (
@@ -121,14 +141,33 @@ function App() {
                 <p className="text-sm text-gray-600">Urban Sustainability Scorer</p>
               </div>
             </div>
-            {currentScreen === 'results' && (
-              <button
-                onClick={handleRetakePhoto}
-                className="btn-secondary text-sm"
-              >
-                New Scan
-              </button>
-            )}
+            <div className="flex items-center space-x-3">
+              {/* Developer toggle for testing */}
+              <div className="flex items-center space-x-2">
+                <label className="text-xs text-gray-500">Mock Data:</label>
+                <button
+                  onClick={toggleMockData}
+                  className={`w-10 h-5 rounded-full transition-colors ${
+                    useMockData ? 'bg-blue-500' : 'bg-gray-300'
+                  }`}
+                >
+                  <div
+                    className={`w-4 h-4 bg-white rounded-full transition-transform ${
+                      useMockData ? 'translate-x-5' : 'translate-x-0.5'
+                    }`}
+                  />
+                </button>
+              </div>
+              
+              {currentScreen === 'results' && (
+                <button
+                  onClick={handleRetakePhoto}
+                  className="btn-secondary text-sm"
+                >
+                  New Scan
+                </button>
+              )}
+            </div>
           </div>
         </div>
       </header>
