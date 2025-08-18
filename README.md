@@ -158,22 +158,6 @@ Amazon_Hackathon/
 ## 🔧 Configuration
 
 ### Backend Configuration
-Models are loaded automatically on startup. Configuration options:
-
-```python
-# In models/sustainability_analyzer.py
-DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
-MAX_IMAGE_SIZE = (1024, 1024)
-CONFIDENCE_THRESHOLD = 0.5
-```
-
-### Frontend Configuration
-```javascript
-// In services/backendService.js
-const API_BASE_URL = 'http://localhost:8000'
-const TIMEOUT = 30000  // 30 seconds
-const MAX_FILE_SIZE = 10 * 1024 * 1024  // 10MB
-```
 
 ## 🚀 Deployment
 
@@ -225,8 +209,6 @@ npm test
 2. **Health Check**: Visit `http://localhost:8000/health`
 3. **Model Info**: Visit `http://localhost:8000/models/info`
 
-## 🔍 Troubleshooting
-
 ### Common Issues
 
 **Backend won't start:**
@@ -239,38 +221,7 @@ pip install -r requirements.txt
 
 # Check for missing packages
 python -c "import torch, transformers, fastapi"
-```
 
-**Frontend can't connect to backend:**
-```bash
-# Check if backend is running
-curl http://localhost:8000/health
-
-# Check CORS settings in main.py
-# Ensure frontend URL is in allow_origins
-```
-
-**Models fail to load:**
-- Check internet connection (models download on first run)
-- Ensure sufficient disk space (~2GB for models)
-- Check GPU/CUDA availability with `torch.cuda.is_available()`
-
-**Image analysis fails:**
-- Check image format (JPG, PNG supported)
-- Ensure image size < 10MB
-- Check browser console for errors
-
-### Performance Optimization
-
-**Backend:**
-- Use GPU if available (`CUDA_VISIBLE_DEVICES=0`)
-- Reduce image size for faster processing
-- Enable model caching
-
-**Frontend:**
-- Compress images before upload
-- Implement image resizing client-side
-- Add loading states for better UX
 
 ## 📊 Model Performance
 
@@ -284,14 +235,6 @@ curl http://localhost:8000/health
 - **CPU Only**: ~5-15 seconds per image
 - **Fallback Mode**: ~1-2 seconds per image
 
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit changes (`git commit -m 'Add amazing feature'`)
-4. Push to branch (`git push origin feature/amazing-feature`)
-5. Open Pull Request
-
 ### Development Guidelines
 - Follow PEP 8 for Python code
 - Use ESLint/Prettier for JavaScript
@@ -302,23 +245,6 @@ curl http://localhost:8000/health
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-## 🙏 Acknowledgments
-
-- **Hugging Face** for DETR model
-- **PyTorch** for DeepLab segmentation
-- **FastAPI** for the backend framework
-- **React** and **Vite** for the frontend
-- **Tailwind CSS** for styling
-
-## 📞 Support
-
-For questions or issues:
-1. Check the troubleshooting section above
-2. Search existing GitHub issues
-3. Create a new issue with detailed description
-4. Include logs and error messages
-
----
 
 **Built with ❤️ for sustainable urban development**
 
